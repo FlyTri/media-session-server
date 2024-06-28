@@ -33,5 +33,5 @@ jobs:
     - name: Upload exe artifact
       uses: actions/upload-artifact@v2
       with:
-        name: myapp-windows-executable
+        name: app.exe
         path: dist/main.exe
