@@ -1,14 +1,10 @@
 import asyncio
 import base64
+import aiohttp_cors
 
 from aiohttp import web
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SessionManager
 from winsdk.windows.storage.streams import Buffer, InputStreamOptions
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "*"
-}
 
 
 async def read_thumbnail(thumbnail):
@@ -73,7 +69,7 @@ async def get_session(request):
                 }
             })
 
-        return web.json_response(data, headers=CORS_HEADERS)
+        return web.json_response(data)
 
     except Exception as error:
         error_message = {"error": str(error)}
@@ -81,13 +77,24 @@ async def get_session(request):
 
 
 async def handle_index(request):
-    return web.Response(status=200, content_type='text/plain', text='', headers=CORS_HEADERS)
+    return web.Response(status=200, content_type='text/plain', text='')
 
 
 async def main():
     app = web.Application()
     app.router.add_get('/sessions', get_session)
     app.router.add_get('/', handle_index)
+
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+
+    for route in list(app.router.routes()):
+        cors.add(route)
 
     runner = web.AppRunner(app)
     await runner.setup()
