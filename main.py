@@ -24,7 +24,7 @@ async def read_thumbnail(thumbnail):
 
     thumbnail_bytes = bytearray(buffer)
     thumbnail_base64 = base64.b64encode(thumbnail_bytes).decode("utf-8")
-    return thumbnail_base64
+    return "data:image/png;base64," + thumbnail_base64
 
 
 async def get_session(request):
