@@ -1,13 +1,9 @@
 import asyncio
 import base64
-import ctypes
-
 
 from aiohttp import web
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SessionManager
 from winsdk.windows.storage.streams import Buffer, InputStreamOptions
-
-ctypes.windll.kernel32.SetConsoleTitleW("title Media Sessions Server")
 
 
 async def read_thumbnail(thumbnail):
