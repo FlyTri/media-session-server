@@ -1,5 +1,7 @@
 # Media Sessions Server
 
+## [Download](https://nightly.link/FlyTri/media-sessions-server/workflows/build/main/Executable)
+
 ## Endpoints
 
 > Default port is `8170` 
