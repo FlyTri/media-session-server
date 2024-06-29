@@ -1,50 +1,81 @@
 import asyncio
+import base64
+import ctypes
+
+
 from aiohttp import web
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SessionManager
-from datetime import datetime
-import pytz
+from winsdk.windows.storage.streams import Buffer, InputStreamOptions
 
-PlaybackStatus = [
-    "Closed",
-    "Opened",
-    "Changing",
-    "Stopped",
-    "Playing",
-    "Paused",
-]
+ctypes.windll.kernel32.SetConsoleTitleW("title Media Sessions Server")
 
 
-async def get_current_session(request):
+async def read_thumbnail(thumbnail):
+    read = thumbnail.open_read_async()
+
+    for _ in range(500):
+        if read.status != 0:
+            break
+        await asyncio.sleep(0.01)
+
+    if read.status == 0:
+        return None
+
+    buffer = Buffer(5 * 1024 * 1024)
+    readable_stream = read.get_results()
+    await readable_stream.read_async(buffer, buffer.capacity, InputStreamOptions.READ_AHEAD)
+
+    thumbnail_bytes = bytearray(buffer)
+    thumbnail_base64 = base64.b64encode(thumbnail_bytes).decode("utf-8")
+    return thumbnail_base64
+
+
+async def get_session(request):
     try:
-        sessions = await SessionManager.request_async()
-        current_session = sessions.get_current_session()
-        metadata = await current_session.try_get_media_properties_async()
-        playback_info = current_session.get_playback_info()
-        timeline = current_session.get_timeline_properties()
-        last_updated_time_timestamp = timeline.last_updated_time.timestamp()
-
-        playing = playback_info.playback_status == PlaybackStatus.index("Playing")
-
-        if playing:
-            current_time_timestamp = datetime.now(pytz.utc).timestamp()
-            position = (current_time_timestamp - last_updated_time_timestamp) + timeline.position.total_seconds()
-        else:
-            position = timeline.position.total_seconds()
-
+        manager = await SessionManager.request_async()
+        sessions = manager.get_sessions()
         data = {
-            "source": current_session.source_app_user_model_id,
-            "title": metadata.title,
-            "artist": metadata.artist,
-            "album": metadata.album_title,
-            "playing": playing,
-            "position": int(position * 1000),
-            "duration": timeline.end_time.seconds * 1000
+            "size": sessions.size,
+            "sessions": []
         }
+
+        for session in sessions:
+            metadata = await session.try_get_media_properties_async()
+            playback_info = session.get_playback_info()
+            timeline = session.get_timeline_properties()
+            thumbnail = await read_thumbnail(metadata.thumbnail)
+
+            data["sessions"].append({
+                "source": session.source_app_user_model_id,
+                "album": {
+                    "artist": metadata.album_artist,
+                    "title": metadata.album_title,
+                    "track_count": metadata.album_track_count
+                },
+                "artist": metadata.artist,
+                "genres": list(metadata.genres),
+                "playback": {
+                    "type": playback_info.playback_type,
+                    "status": playback_info.playback_status,
+                    "rate": playback_info.playback_rate,
+                    "auto_repeat_mode": playback_info.auto_repeat_mode,
+                    "is_shuffle_active": playback_info.is_shuffle_active,
+                },
+                "subtitle": metadata.subtitle,
+                "title": metadata.title,
+                "track_number": metadata.track_number,
+                "thumbnail": thumbnail,
+                "timeline": {
+                    "position": timeline.position.total_seconds() * 1000,
+                    "duration": timeline.end_time.total_seconds() * 1000,
+                    "last_updated_time": timeline.last_updated_time.timestamp()
+                }
+            })
 
         return web.json_response(data)
 
-    except Exception as e:
-        error_message = {"error": str(e)}
+    except Exception as error:
+        error_message = {"error": str(error)}
         return web.json_response(error_message, status=500)
 
 
@@ -54,7 +85,7 @@ async def handle_index(request):
 
 async def main():
     app = web.Application()
-    app.router.add_get('/current-session', get_current_session)
+    app.router.add_get('/sessions', get_session)
     app.router.add_get('/', handle_index)
 
     runner = web.AppRunner(app)

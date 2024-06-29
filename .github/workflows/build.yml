@@ -26,12 +26,18 @@ jobs:
       run: |
         pip install pyinstaller
 
-    - name: Build exe
+    - name: Build exe (with console)
       run: |
-        pyinstaller --onefile main.py
+        pyinstaller main.spec
 
-    - name: Upload artifact
+    - name: Build exe (without console)
+      run: |
+        pyinstaller main-no-console.spec
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: app.exe
-        path: dist/main.exe
+        name: Executable
+        path: |
+          dist/app.exe
+          dist/app-no-console.exe
