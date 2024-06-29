@@ -5,6 +5,11 @@ from aiohttp import web
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SessionManager
 from winsdk.windows.storage.streams import Buffer, InputStreamOptions
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "*"
+}
+
 
 async def read_thumbnail(thumbnail):
     read = thumbnail.open_read_async()
@@ -68,7 +73,7 @@ async def get_session(request):
                 }
             })
 
-        return web.json_response(data)
+        return web.json_response(data, headers=CORS_HEADERS)
 
     except Exception as error:
         error_message = {"error": str(error)}
@@ -76,7 +81,7 @@ async def get_session(request):
 
 
 async def handle_index(request):
-    return web.Response(status=200, content_type='text/plain', text='')
+    return web.Response(status=200, content_type='text/plain', text='', headers=CORS_HEADERS)
 
 
 async def main():
