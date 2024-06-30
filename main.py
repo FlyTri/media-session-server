@@ -1,13 +1,16 @@
 import asyncio
 import base64
-import aiohttp_cors
 
+import aiohttp_cors
 from aiohttp import web
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SessionManager
 from winsdk.windows.storage.streams import Buffer, InputStreamOptions
 
 
 async def read_thumbnail(thumbnail):
+    if not thumbnail:
+        return None
+
     read = thumbnail.open_read_async()
 
     for _ in range(500):
