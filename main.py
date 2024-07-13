@@ -30,7 +30,7 @@ async def read_thumbnail(thumbnail):
     return "data:image/png;base64," + thumbnail_base64
 
 
-async def get_session(request):
+async def get_sessions(request):
     try:
         manager = await SessionManager.request_async()
         sessions = manager.get_sessions()
@@ -85,7 +85,7 @@ async def handle_index(request):
 
 async def main():
     app = web.Application()
-    app.router.add_get('/sessions', get_session)
+    app.router.add_get('/sessions', get_sessions)
     app.router.add_get('/', handle_index)
 
     cors = aiohttp_cors.setup(app, defaults={
