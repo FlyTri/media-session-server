@@ -1,91 +1,103 @@
 import asyncio
-import base64
 
 import aiohttp_cors
 from aiohttp import web
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SessionManager
-from winsdk.windows.storage.streams import Buffer, InputStreamOptions
 
 
-async def read_thumbnail(thumbnail):
-    if not thumbnail:
+async def spotify():
+    manager = await SessionManager.request_async()
+    current = manager.get_current_session()
+
+    if current.source_app_user_model_id == "Spotify.exe":
+        return current
+    else:
         return None
 
-    read = thumbnail.open_read_async()
 
-    for _ in range(500):
-        if read.status != 0:
-            break
-        await asyncio.sleep(0.01)
+async def get_session(request):
+    session = await spotify()
 
-    if read.status == 0:
-        return None
+    if session:
+        metadata = await session.try_get_media_properties_async()
+        playback_info = session.get_playback_info()
+        timeline = session.get_timeline_properties()
 
-    buffer = Buffer(5 * 1024 * 1024)
-    readable_stream = read.get_results()
-    await readable_stream.read_async(buffer, buffer.capacity, InputStreamOptions.READ_AHEAD)
+        return web.json_response({
+            "title": metadata.title,
+            "artist": metadata.artist,
+            "album": {
+                "artist": metadata.album_artist,
+                "title": metadata.album_title,
+                "track_count": metadata.album_track_count
+            },
+            "playback": {
+                "status": playback_info.playback_status,
+                "auto_repeat_mode": playback_info.auto_repeat_mode,
+                "is_shuffle_active": playback_info.is_shuffle_active,
+            },
+            "timeline": {
+                "position": timeline.position.total_seconds() * 1000,
+                "duration": timeline.end_time.total_seconds() * 1000,
+                "last_updated_time": timeline.last_updated_time.timestamp()
+            }
+        })
+    else:
+        return web.json_response({"message": "not_found"}, status=404)
 
-    thumbnail_bytes = bytearray(buffer)
-    thumbnail_base64 = base64.b64encode(thumbnail_bytes).decode("utf-8")
-    return "data:image/png;base64," + thumbnail_base64
+
+async def toggle_play_pause(request):
+    session = await spotify()
+
+    if session:
+        session.try_toggle_play_pause_async()
+
+    return web.Response(status=204)
 
 
-async def get_sessions(request):
-    try:
-        manager = await SessionManager.request_async()
-        sessions = manager.get_sessions()
-        data = {
-            "size": sessions.size,
-            "sessions": []
-        }
+async def seek(request: web.Request):
+    time = request.query.get('time', '0')
 
-        for session in sessions:
-            metadata = await session.try_get_media_properties_async()
-            playback_info = session.get_playback_info()
-            timeline = session.get_timeline_properties()
-            thumbnail = await read_thumbnail(metadata.thumbnail)
+    if not time.isnumeric():
+        time = '0'
 
-            data["sessions"].append({
-                "source": session.source_app_user_model_id,
-                "album": {
-                    "artist": metadata.album_artist,
-                    "title": metadata.album_title,
-                    "track_count": metadata.album_track_count
-                },
-                "artist": metadata.artist,
-                "genres": list(metadata.genres),
-                "playback": {
-                    "type": playback_info.playback_type,
-                    "status": playback_info.playback_status,
-                    "rate": playback_info.playback_rate,
-                    "auto_repeat_mode": playback_info.auto_repeat_mode,
-                    "is_shuffle_active": playback_info.is_shuffle_active,
-                },
-                "subtitle": metadata.subtitle,
-                "title": metadata.title,
-                "track_number": metadata.track_number,
-                "thumbnail": thumbnail,
-                "timeline": {
-                    "position": timeline.position.total_seconds() * 1000,
-                    "duration": timeline.end_time.total_seconds() * 1000,
-                    "last_updated_time": timeline.last_updated_time.timestamp()
-                }
-            })
+    session = await spotify()
 
-        return web.json_response(data)
+    if session:
+        await session.try_change_playback_position_async(int(time) * 10000)
 
-    except Exception as error:
-        error_message = {"error": str(error)}
-        return web.json_response(error_message, status=500)
+    return web.Response(status=204)
+
+
+async def rewind(request):
+    session = await spotify()
+
+    if session:
+        await session.try_rewind_async()
+
+    return web.Response(status=204)
+
+
+async def fast_forward(request):
+    session = await spotify()
+
+    if session:
+        await session.try_fast_forward_async()
+
+    return web.Response(status=204)
 
 
 async def handle_index(request):
-    return web.Response(status=200, content_type='text/plain', text='')
+    return web.Response(status=200, content_type='text/plain')
 
 
 async def main():
     app = web.Application()
-    app.router.add_get('/sessions', get_sessions)
+    app.router.add_get('/spotify', get_session)
+    app.router.add_get('/toggle', toggle_play_pause)
+    app.router.add_get('/seek', seek)
+    app.router.add_get('/rewind', rewind)
+    app.router.add_get('/fast_forward', fast_forward)
     app.router.add_get('/', handle_index)
 
     cors = aiohttp_cors.setup(app, defaults={
