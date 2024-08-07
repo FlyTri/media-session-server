@@ -56,10 +56,10 @@ async def toggle_play_pause(request):
 
 
 async def seek(request: web.Request):
-    time = request.query.get('time', '0')
+    time = request.query.get("time", "0")
 
     if not time.isnumeric():
-        time = '0'
+        time = "0"
 
     session = await spotify()
 
@@ -88,17 +88,17 @@ async def fast_forward(request):
 
 
 async def handle_index(request):
-    return web.Response(status=200, content_type='text/plain')
+    return web.Response(status=200, content_type="text/plain")
 
 
 async def main():
     app = web.Application()
-    app.router.add_get('/spotify', get_session)
-    app.router.add_get('/toggle', toggle_play_pause)
-    app.router.add_get('/seek', seek)
-    app.router.add_get('/rewind', rewind)
-    app.router.add_get('/fast_forward', fast_forward)
-    app.router.add_get('/', handle_index)
+    app.router.add_get("/spotify", get_session)
+    app.router.add_get("/toggle", toggle_play_pause)
+    app.router.add_get("/seek", seek)
+    app.router.add_get("/rewind", rewind)
+    app.router.add_get("/fast_forward", fast_forward)
+    app.router.add_get("/", handle_index)
 
     cors = aiohttp_cors.setup(app, defaults={
         "*": aiohttp_cors.ResourceOptions(
@@ -113,10 +113,10 @@ async def main():
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, 'localhost', 8170)
+    site = web.TCPSite(runner, "localhost", 8170)
     await site.start()
 
-    print(f"HTTP server started at http://localhost:8170")
+    print("HTTP server started at http://localhost:8170")
     await asyncio.Event().wait()
 
 
